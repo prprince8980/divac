@@ -2,6 +2,6 @@ Frontend quick start:
 
 1. cd frontend
 2. npm install
-3. npm start
+3. npm run dev
 
-The frontend expects the backend at http://localhost:4000 by default. Set REACT_APP_API to change.
+During local development, Vite proxies `/api` and `/uploads` requests to the deployed backend, avoiding browser CORS checks. Set `VITE_API_URL` to the backend origin for production builds; leave it unset locally to use the proxy.
