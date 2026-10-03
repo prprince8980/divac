@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const API = process.env.REACT_APP_API || 'http://localhost:4000';
+const API = process.env.REACT_APP_API || '';
 const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 480%22%3E%3Crect width=%22640%22 height=%22480%22 fill=%22%23f3ebe5%22/%3E%3Ctext x=%2250%25%22 y=%2252%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23793444%22 font-family=%22Georgia%22 font-size=%2244%22%3EDiva%3C/text%3E%3C/svg%3E';
 
 function handleImageError(event) {
