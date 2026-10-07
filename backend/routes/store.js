@@ -4,23 +4,15 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
+const { normalizePhone } = require('../utils/phone');
 
 // POST /api/store/login
 // Phone-only sign-in; phone ownership is not verified.
 router.post('/login', async (req, res) => {
   try {
     const { phone } = req.body || {};
-    if (typeof phone !== 'string') {
-      return res.status(400).json({ error: 'A mobile number is required' });
-    }
-
-    const cleanedPhone = phone.replace(/[\s()-]/g, '');
-    const normalizedPhone = /^\d{10}$/.test(cleanedPhone)
-      ? `+91${cleanedPhone}`
-      : cleanedPhone.startsWith('+')
-        ? cleanedPhone
-        : `+${cleanedPhone}`;
-    if (!/^\+[1-9]\d{6,14}$/.test(normalizedPhone)) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
       return res.status(400).json({ error: 'Enter a valid mobile number, including its country code' });
     }
 
@@ -44,19 +36,99 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/store/orders?phone=+919876543210
+// GET /api/store/orders?phone=+919876543210&status=cancelled
 router.get('/orders', async (req, res) => {
   try {
-    const { phone } = req.query;
-    if (typeof phone !== 'string' || !phone) {
-      return res.status(400).json({ error: 'A phone number is required' });
+    const { phone, status } = req.query;
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'A valid phone number is required' });
     }
 
-    const orders = await Order.find({ 'customer.phone': phone }).sort({ createdAt: -1 }).lean();
-    res.json({ orders });
+    const filter = { 'customer.phone': normalizedPhone };
+    if (status === 'cancelled') {
+      filter.status = 'cancelled';
+      filter.isCancelled = true;
+    } else if (status === 'waiting') {
+      filter.status = 'pending';
+      filter.isCancelled = false;
+    } else if (status === 'accepted') {
+      filter.status = 'accepted';
+      filter.isCancelled = false;
+    } else if (status === 'rejected') {
+      filter.status = 'rejected';
+      filter.isCancelled = false;
+    } else {
+      filter.isCancelled = false;
+      filter.status = { $in: ['pending', 'accepted', 'rejected'] };
+    }
+
+    const [orders, counts] = await Promise.all([
+      Order.find(filter).sort({ createdAt: -1 }).lean(),
+      {
+        waiting: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'pending' }),
+        accepted: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'accepted' }),
+        rejected: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'rejected' }),
+        cancelled: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: true, status: 'cancelled' })
+      }
+    ]);
+
+    res.json({ orders, counts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not load orders' });
+  }
+});
+
+// POST /api/store/orders/:id/cancel
+router.post('/orders/:id/cancel', async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    const { phone } = req.body || {};
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid order id' });
+    }
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'A valid mobile number is required' });
+    }
+
+    const order = await Order.findOne({ _id: id, 'customer.phone': normalizedPhone }).session(session);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found for this mobile number' });
+    }
+    if (order.isCancelled || order.status === 'cancelled') {
+      return res.status(409).json({ error: 'This order is already cancelled' });
+    }
+    if (order.status === 'rejected') {
+      return res.status(409).json({ error: 'A rejected order cannot be cancelled' });
+    }
+
+    await session.withTransaction(async () => {
+      for (const item of order.items || []) {
+        if (!item.product || !item.quantity) continue;
+        await Product.updateOne(
+          { _id: item.product },
+          { $inc: { quantity: item.quantity } },
+          { session }
+        );
+      }
+
+      order.status = 'cancelled';
+      order.isAccepted = false;
+      order.isCancelled = true;
+      order.cancelledAt = new Date();
+      await order.save({ session });
+    });
+
+    res.json({ ok: true, message: 'Order cancelled successfully', order: order.toObject() });
+  } catch (err) {
+    await session.abortTransaction().catch(() => {});
+    console.error(err);
+    res.status(400).json({ error: err.message || 'Could not cancel the order' });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -139,6 +211,8 @@ router.post('/checkout', async (req, res) => {
         total,
         status: 'pending',
         isAccepted: false,
+        isCancelled: false,
+        cancelledAt: null,
         deliveryDateTime: null
       });
       await order.save({ session });

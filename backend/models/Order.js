@@ -17,8 +17,14 @@ const OrderSchema = new mongoose.Schema({
   },
   items: [OrderItemSchema],
   total: Number,
-  status: { type: String, default: 'pending' },
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'rejected', 'cancelled'],
+    default: 'pending'
+  },
   isAccepted: { type: Boolean, default: false },
+  isCancelled: { type: Boolean, default: false },
+  cancelledAt: { type: Date, default: null },
   deliveryDateTime: { type: Date, default: null }
 }, { timestamps: true });
 

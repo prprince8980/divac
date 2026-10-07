@@ -412,7 +412,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .payment-note { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 13px; background: var(--accent-light); color: var(--accent-dark); font-size: 11px; font-weight: 700; }
 
 .history-page { min-height: 60vh; }
-.history-page .section-heading { align-items: center; margin-bottom: 28px; }
+.history-page .section-heading { align-items: center; margin-bottom: 18px; }
+.order-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.order-tab {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  cursor: pointer; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+}
+.order-tab span {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: var(--accent-light); color: var(--accent-dark); font-size: 10px;
+}
+.order-tab.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent-dark); }
 .history-list { display: grid; gap: 14px; }
 .history-item { border: 1px solid var(--line); background: var(--surface); }
 .history-item-button {
@@ -505,7 +516,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .delivery-time-card strong { display: block; margin-top: 6px; color: var(--accent-dark); font-size: 13px; line-height: 1.6; }
 .delivery-message { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .customer-panel { margin-top: 16px; }
-.order-modal-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
+.order-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.cancel-confirmation {
+  margin-top: 22px; padding: 22px; border: 1px solid var(--line); background: #fff9f8;
+}
+.cancel-confirmation h3 { margin: 0 0 8px; font-family: 'Playfair Display', Georgia, serif; font-size: 22px; font-weight: 500; }
+.cancel-confirmation p { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.cancel-confirmation label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.cancel-confirmation input { width: 100%; height: 46px; padding: 0 13px; border: 1px solid var(--line); background: white; color: var(--text); font-size: 13px; }
+.cancel-confirmation input:focus { border-color: var(--accent); outline: 0; }
+.cancel-confirm-button { background: #a24659; }
+.order-modal-actions .cancel-confirm-button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 65px 20px; border: 1px dashed var(--line); background: rgba(255,254,253,.7); text-align: center; }
 .empty-mark { color: var(--accent); font-size: 34px; }
 .empty-state h2 { margin: 12px 0 6px; font-family: 'Playfair Display', Georgia, serif; font-size: 24px; font-weight: 500; }
@@ -659,9 +680,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   .address-city-state { grid-template-columns: 1fr; gap: 0; }
   .order-summary { position: static; }
   .history-page .section-heading { align-items: flex-start; flex-direction: column; }
+  .order-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .history-item { padding: 17px; }
   .history-topline h2 { font-size: 18px; }
   .history-details { flex-direction: column; gap: 7px; }
+  .cancel-confirmation .order-modal-actions { flex-direction: column; }
+  .cancel-confirmation .order-modal-actions .button { width: 100%; }
   .contact-links { grid-template-columns: 1fr; }
   .site-footer { padding: 30px 20px 0; }
   .footer-main { grid-template-columns: 1fr; gap: 25px; padding-bottom: 25px; }

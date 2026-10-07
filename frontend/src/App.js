@@ -402,15 +402,18 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
 }
 
 function normalizePhone(phone) {
-  const digits = phone.replace(/\D/g, '');
-  return digits.length === 10 ? `91${digits}` : digits;
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return `+${digits}`;
 }
 
 function getOrderStatus(order) {
   if (order.status === 'cancelled') return 'Cancelled';
   if (order.status === 'rejected') return 'Rejected';
-  if (order.isAccepted === true) return 'Accepted';
-  return 'Pending';
+  if (order.status === 'accepted' || order.isAccepted === true) return 'Accepted';
+  return 'Waiting';
 }
 
 function formatDeliveryDate(dateValue) {
@@ -428,67 +431,122 @@ function History({ onShop, userPhone }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('waiting');
+  const [cancelingOrderId, setCancelingOrderId] = useState(null);
+  const [confirmationPhone, setConfirmationPhone] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [counts, setCounts] = useState({ active: 0, cancelled: 0, waiting: 0, accepted: 0, rejected: 0 });
 
-  const history = allHistory
-    .map((order, index) => ({ order, index }))
-    .filter(({ order }) => normalizePhone(order.customer?.phone || '') === normalizePhone(userPhone));
+  const visibleOrders = activeTab === 'cancelled'
+    ? allHistory.filter(order => order.status === 'cancelled')
+    : allHistory.filter(order => order.status !== 'cancelled');
 
-  useEffect(() => {
-    let active = true;
+  function fetchOrders(status = activeTab) {
     setLoading(true);
-    fetch(`${API}/api/store/orders?phone=${encodeURIComponent(userPhone)}`)
+    setError('');
+    fetch(`${API}/api/store/orders?phone=${encodeURIComponent(userPhone)}&status=${encodeURIComponent(status)}`)
       .then(async response => {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Could not load your orders.');
-        if (active) setAllHistory(result.orders || []);
+        setAllHistory(result.orders || []);
+        setCounts(result.counts || { active: 0, cancelled: 0, waiting: 0, accepted: 0, rejected: 0 });
       })
       .catch(err => {
-        if (active) setError(err.message || 'Could not load your orders.');
+        setError(err.message || 'Could not load your orders.');
       })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    if (!userPhone) return;
+    fetchOrders(activeTab);
   }, [userPhone]);
 
-  function cancelOrder(index) {
-    const updated = [...allHistory];
-    updated[index] = { ...updated[index], status: 'cancelled', isAccepted: false };
-    localStorage.setItem('diva_orders', JSON.stringify(updated));
-    setAllHistory(updated);
-    setSelectedOrder(updated[index]);
+  useEffect(() => {
+    if (!userPhone) return;
+    fetchOrders(activeTab);
+  }, [activeTab]);
+
+  async function cancelOrder(order) {
+    if (!order || !order._id) return;
+    setCancelError('');
+    setCancelingOrderId(order._id);
+    try {
+      const response = await fetch(`${API}/api/store/orders/${order._id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: confirmationPhone })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'We could not cancel this order.');
+      setConfirmationPhone('');
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (err) {
+      setCancelError(err.message || 'We could not cancel this order.');
+    } finally {
+      setCancelingOrderId(null);
+    }
   }
 
   function closeDetails() {
     setSelectedOrder(null);
+    setConfirmationPhone('');
+    setCancelError('');
   }
+
+  const activeCounts = {
+    waiting: counts.waiting || 0,
+    accepted: counts.accepted || 0,
+    rejected: counts.rejected || 0,
+    cancelled: counts.cancelled || 0
+  };
 
   return (
     <section className="content-page history-page">
       <div className="section-heading">
         <div><p className="eyebrow">Your Diva account</p><h1>Order history</h1></div>
-        {history.length > 0 && <button className="button button-secondary" onClick={onShop}>Continue shopping</button>}
+        <button className="button button-secondary" onClick={onShop}>Continue shopping</button>
       </div>
+
+      <nav className="order-tabs" aria-label="Order status navigation">
+        {[
+          { id: 'waiting', label: 'Waiting', count: activeCounts.waiting },
+          { id: 'accepted', label: 'Accepted', count: activeCounts.accepted },
+          { id: 'rejected', label: 'Rejected', count: activeCounts.rejected },
+          { id: 'cancelled', label: 'Cancelled', count: activeCounts.cancelled }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`order-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}<span>{tab.count}</span>
+          </button>
+        ))}
+      </nav>
+
       {loading ? (
         <div className="notice-state" role="status">Loading your orders…</div>
-      ) : error && history.length === 0 ? (
+      ) : error ? (
         <div className="notice-state error-state" role="alert"><p>{error}</p></div>
-      ) : history.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         <div className="empty-state">
           <span className="empty-mark" aria-hidden="true">♡</span>
-          <h2>No orders on this account yet</h2>
-          <p>Orders placed using {userPhone} will appear here. Find something lovely in the collection.</p>
+          <h2>No {activeTab === 'cancelled' ? 'cancelled' : activeTab} orders</h2>
+          <p>{activeTab === 'cancelled' ? 'Cancelled orders will appear here.' : `Your ${activeTab} orders will appear here.`}</p>
           <button className="button" onClick={onShop}>Explore the collection</button>
         </div>
       ) : (
         <div className="history-list">
-          {history.map(({ order, index }) => {
+          {visibleOrders.map(order => {
             const productName = order.items?.[0]?.productName || 'Diva product';
             const itemTotal = order.items?.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) || order.total || 0;
             const customer = order.customer || {};
 
             return (
-              <article key={`${order._id || order.createdAt}-${index}`} className="history-item">
+              <article key={order._id} className="history-item">
                 <button className="history-item-button" onClick={() => setSelectedOrder(order)}>
                   <div className="history-topline">
                     <div><p className="eyebrow">Placed {new Date(order.createdAt).toLocaleString()}</p><h2>{productName}</h2></div>
@@ -498,7 +556,7 @@ function History({ onShop, userPhone }) {
                     <span>Delivering to {customer.name}</span><span>{customer.phone}</span><span>{customer.address}</span>
                   </div>
                   <div className="history-footer">
-                    <span className={`order-status ${order.status === 'cancelled' ? 'cancelled' : order.status === 'rejected' ? 'rejected' : order.isAccepted ? 'accepted' : ''}`}>
+                    <span className={`order-status ${order.status === 'cancelled' ? 'cancelled' : order.status === 'rejected' ? 'rejected' : order.status === 'accepted' || order.isAccepted ? 'accepted' : ''}`}>
                       {getOrderStatus(order)}
                     </span>
                     <span className="order-detail-link">View order details <span aria-hidden="true">→</span></span>
@@ -506,7 +564,7 @@ function History({ onShop, userPhone }) {
                 </button>
                 {order.status !== 'cancelled' && order.status !== 'rejected' && (
                   <div className="history-actions">
-                    <button className="text-button cancel-button" onClick={() => cancelOrder(index)}>Cancel order</button>
+                    <button className="text-button cancel-button" onClick={() => { setSelectedOrder(order); setConfirmationPhone(''); setCancelError(''); }}>Cancel order</button>
                   </div>
                 )}
               </article>
@@ -525,7 +583,7 @@ function History({ onShop, userPhone }) {
                 <p className="eyebrow">Your order</p>
                 <h2 id="order-details-title">{selectedOrder.orderNumber || 'Diva order'}</h2>
               </div>
-              <span className={`order-badge ${selectedOrder.status === 'cancelled' ? 'cancelled' : selectedOrder.status === 'rejected' ? 'rejected' : selectedOrder.isAccepted ? 'accepted' : 'pending'}`}>
+              <span className={`order-badge ${selectedOrder.status === 'cancelled' ? 'cancelled' : selectedOrder.status === 'rejected' ? 'rejected' : selectedOrder.status === 'accepted' || selectedOrder.isAccepted ? 'accepted' : 'pending'}`}>
                 {getOrderStatus(selectedOrder)}
               </span>
             </div>
@@ -547,7 +605,7 @@ function History({ onShop, userPhone }) {
                   <small>Expected delivery</small>
                   <strong>{formatDeliveryDate(selectedOrder.deliveryDateTime)}</strong>
                 </div>
-                <p className="delivery-message">{selectedOrder.isAccepted ? 'Your order is accepted and scheduled for delivery.' : selectedOrder.status === 'cancelled' ? 'This order has been cancelled.' : selectedOrder.status === 'rejected' ? 'This order was rejected.' : 'Your order is waiting for acceptance.'}</p>
+                <p className="delivery-message">{selectedOrder.status === 'accepted' || selectedOrder.isAccepted ? 'Your order is accepted and scheduled for delivery.' : selectedOrder.status === 'cancelled' ? 'This order has been cancelled.' : selectedOrder.status === 'rejected' ? 'This order was rejected.' : 'Your order is waiting for acceptance.'}</p>
               </section>
             </div>
 
@@ -558,6 +616,37 @@ function History({ onShop, userPhone }) {
               <div className="detail-row"><span>Phone</span><strong>{selectedOrder.customer?.phone || 'Not provided'}</strong></div>
               <div className="detail-row"><span>Address</span><strong>{selectedOrder.customer?.address || 'Not provided'}</strong></div>
             </section>
+
+            {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'rejected' && (
+              <div className="cancel-confirmation" aria-live="polite">
+                <h3>Cancel this order</h3>
+                <p>Enter the mobile number for this order to confirm cancellation. This action returns the product quantity to stock.</p>
+                <label htmlFor="cancel-phone-confirmation">Mobile number</label>
+                <input
+                  id="cancel-phone-confirmation"
+                  type="tel"
+                  inputMode="tel"
+                  value={confirmationPhone}
+                  onChange={event => setConfirmationPhone(event.target.value)}
+                  placeholder={userPhone}
+                />
+                {cancelError && <p className="form-error">{cancelError}</p>}
+                <div className="order-modal-actions">
+                  <button className="button button-secondary" type="button" onClick={closeDetails}>Keep order</button>
+                  <button
+                    className="button cancel-confirm-button"
+                    type="button"
+                    disabled={
+                      cancelingOrderId !== null ||
+                      normalizePhone(confirmationPhone) !== normalizePhone(userPhone)
+                    }
+                    onClick={() => cancelOrder(selectedOrder)}
+                  >
+                    {cancelingOrderId === selectedOrder._id ? 'Cancelling…' : 'Confirm cancellation'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="order-modal-actions">
               <button className="button button-secondary" onClick={closeDetails}>Close</button>
