@@ -17,7 +17,9 @@ const OrderSchema = new mongoose.Schema({
   },
   items: [OrderItemSchema],
   total: Number,
-  status: { type: String, default: 'pending' }
+  status: { type: String, default: 'pending' },
+  isAccepted: { type: Boolean, default: false },
+  deliveryDateTime: { type: Date, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.models.Order || mongoose.model('Order', OrderSchema);

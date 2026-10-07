@@ -44,6 +44,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/store/orders?phone=+919876543210
+router.get('/orders', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (typeof phone !== 'string' || !phone) {
+      return res.status(400).json({ error: 'A phone number is required' });
+    }
+
+    const orders = await Order.find({ 'customer.phone': phone }).sort({ createdAt: -1 }).lean();
+    res.json({ orders });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load orders' });
+  }
+});
+
 // GET /api/store/products?page=1&limit=24&search=tote
 router.get('/products', async (req, res) => {
   try {
@@ -116,7 +132,15 @@ router.post('/checkout', async (req, res) => {
       }
 
       const orderNumber = 'DV-' + Date.now();
-      const order = new Order({ orderNumber, customer, items: orderItems, total, status: 'pending' });
+      const order = new Order({
+        orderNumber,
+        customer,
+        items: orderItems,
+        total,
+        status: 'pending',
+        isAccepted: false,
+        deliveryDateTime: null
+      });
       await order.save({ session });
     });
 

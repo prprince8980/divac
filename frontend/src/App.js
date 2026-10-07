@@ -406,22 +406,61 @@ function normalizePhone(phone) {
   return digits.length === 10 ? `91${digits}` : digits;
 }
 
+function getOrderStatus(order) {
+  if (order.status === 'cancelled') return 'Cancelled';
+  if (order.status === 'rejected') return 'Rejected';
+  if (order.isAccepted === true) return 'Accepted';
+  return 'Pending';
+}
+
+function formatDeliveryDate(dateValue) {
+  if (!dateValue) return 'Delivery time will be confirmed';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 'Delivery time unavailable';
+  return new Intl.DateTimeFormat('en-IN', {
+    dateStyle: 'full',
+    timeStyle: 'short'
+  }).format(date);
+}
+
 function History({ onShop, userPhone }) {
   const [allHistory, setAllHistory] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const history = allHistory
     .map((order, index) => ({ order, index }))
-    .filter(({ order }) => normalizePhone(order.phone || '') === normalizePhone(userPhone));
+    .filter(({ order }) => normalizePhone(order.customer?.phone || '') === normalizePhone(userPhone));
 
   useEffect(() => {
-    setAllHistory(JSON.parse(localStorage.getItem('diva_orders') || '[]'));
+    let active = true;
+    setLoading(true);
+    fetch(`${API}/api/store/orders?phone=${encodeURIComponent(userPhone)}`)
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not load your orders.');
+        if (active) setAllHistory(result.orders || []);
+      })
+      .catch(err => {
+        if (active) setError(err.message || 'Could not load your orders.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [userPhone]);
 
   function cancelOrder(index) {
     const updated = [...allHistory];
-    updated[index] = { ...updated[index], status: 'cancelled' };
+    updated[index] = { ...updated[index], status: 'cancelled', isAccepted: false };
     localStorage.setItem('diva_orders', JSON.stringify(updated));
     setAllHistory(updated);
+    setSelectedOrder(updated[index]);
+  }
+
+  function closeDetails() {
+    setSelectedOrder(null);
   }
 
   return (
@@ -430,7 +469,11 @@ function History({ onShop, userPhone }) {
         <div><p className="eyebrow">Your Diva account</p><h1>Order history</h1></div>
         {history.length > 0 && <button className="button button-secondary" onClick={onShop}>Continue shopping</button>}
       </div>
-      {history.length === 0 ? (
+      {loading ? (
+        <div className="notice-state" role="status">Loading your orders…</div>
+      ) : error && history.length === 0 ? (
+        <div className="notice-state error-state" role="alert"><p>{error}</p></div>
+      ) : history.length === 0 ? (
         <div className="empty-state">
           <span className="empty-mark" aria-hidden="true">♡</span>
           <h2>No orders on this account yet</h2>
@@ -439,25 +482,87 @@ function History({ onShop, userPhone }) {
         </div>
       ) : (
         <div className="history-list">
-          {history.map(({ order, index }) => (
-            <article key={`${order.placedAt}-${index}`} className="history-item">
-              <div className="history-topline">
-                <div><p className="eyebrow">Placed {new Date(order.placedAt).toLocaleString()}</p><h2>{order.product.name}</h2></div>
-                <strong className="price">₹{order.product.price}</strong>
-              </div>
-              <div className="history-details">
-                <span>Delivering to {order.name}</span><span>{order.phone}</span><span>{order.address}</span>
-              </div>
-              <div className="history-footer">
-                <span className={`order-status ${order.status === 'cancelled' ? 'cancelled' : ''}`}>
-                  {order.status === 'cancelled' ? 'Cancelled' : 'Waiting for confirmation'}
-                </span>
-                {order.status !== 'cancelled' && (
-                  <button className="text-button cancel-button" onClick={() => cancelOrder(index)}>Cancel order</button>
+          {history.map(({ order, index }) => {
+            const productName = order.items?.[0]?.productName || 'Diva product';
+            const itemTotal = order.items?.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0) || order.total || 0;
+            const customer = order.customer || {};
+
+            return (
+              <article key={`${order._id || order.createdAt}-${index}`} className="history-item">
+                <button className="history-item-button" onClick={() => setSelectedOrder(order)}>
+                  <div className="history-topline">
+                    <div><p className="eyebrow">Placed {new Date(order.createdAt).toLocaleString()}</p><h2>{productName}</h2></div>
+                    <strong className="price">₹{itemTotal}</strong>
+                  </div>
+                  <div className="history-details">
+                    <span>Delivering to {customer.name}</span><span>{customer.phone}</span><span>{customer.address}</span>
+                  </div>
+                  <div className="history-footer">
+                    <span className={`order-status ${order.status === 'cancelled' ? 'cancelled' : order.status === 'rejected' ? 'rejected' : order.isAccepted ? 'accepted' : ''}`}>
+                      {getOrderStatus(order)}
+                    </span>
+                    <span className="order-detail-link">View order details <span aria-hidden="true">→</span></span>
+                  </div>
+                </button>
+                {order.status !== 'cancelled' && order.status !== 'rejected' && (
+                  <div className="history-actions">
+                    <button className="text-button cancel-button" onClick={() => cancelOrder(index)}>Cancel order</button>
+                  </div>
                 )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedOrder && (
+        <div className="order-modal" role="dialog" aria-modal="true" aria-labelledby="order-details-title">
+          <div className="order-modal-backdrop" onClick={closeDetails} />
+          <div className="order-modal-card">
+            <button className="order-modal-close" onClick={closeDetails} aria-label="Close order details">×</button>
+            <div className="order-detail-hero">
+              <div>
+                <p className="eyebrow">Your order</p>
+                <h2 id="order-details-title">{selectedOrder.orderNumber || 'Diva order'}</h2>
               </div>
-            </article>
-          ))}
+              <span className={`order-badge ${selectedOrder.status === 'cancelled' ? 'cancelled' : selectedOrder.status === 'rejected' ? 'rejected' : selectedOrder.isAccepted ? 'accepted' : 'pending'}`}>
+                {getOrderStatus(selectedOrder)}
+              </span>
+            </div>
+
+            <div className="order-detail-grid">
+              <section className="order-card-panel">
+                <div className="panel-icon accent" aria-hidden="true">✓</div>
+                <h3>Order summary</h3>
+                <div className="detail-row"><span>Placed on</span><strong>{new Date(selectedOrder.createdAt).toLocaleString()}</strong></div>
+                <div className="detail-row"><span>Order number</span><strong>{selectedOrder.orderNumber || 'Not available'}</strong></div>
+                <div className="detail-row"><span>Items</span><strong>{selectedOrder.items?.map(item => `${item.productName} × ${item.quantity}`).join(', ') || 'Not available'}</strong></div>
+                <div className="detail-row"><span>Total paid</span><strong>₹{selectedOrder.total}</strong></div>
+              </section>
+
+              <section className="order-card-panel">
+                <div className="panel-icon" aria-hidden="true">✦</div>
+                <h3>Delivery time</h3>
+                <div className="delivery-time-card">
+                  <small>Expected delivery</small>
+                  <strong>{formatDeliveryDate(selectedOrder.deliveryDateTime)}</strong>
+                </div>
+                <p className="delivery-message">{selectedOrder.isAccepted ? 'Your order is accepted and scheduled for delivery.' : selectedOrder.status === 'cancelled' ? 'This order has been cancelled.' : selectedOrder.status === 'rejected' ? 'This order was rejected.' : 'Your order is waiting for acceptance.'}</p>
+              </section>
+            </div>
+
+            <section className="order-card-panel customer-panel">
+              <div className="panel-icon accent" aria-hidden="true">⌂</div>
+              <h3>Delivery details</h3>
+              <div className="detail-row"><span>Customer</span><strong>{selectedOrder.customer?.name || 'Not provided'}</strong></div>
+              <div className="detail-row"><span>Phone</span><strong>{selectedOrder.customer?.phone || 'Not provided'}</strong></div>
+              <div className="detail-row"><span>Address</span><strong>{selectedOrder.customer?.address || 'Not provided'}</strong></div>
+            </section>
+
+            <div className="order-modal-actions">
+              <button className="button button-secondary" onClick={closeDetails}>Close</button>
+            </div>
+          </div>
         </div>
       )}
     </section>
