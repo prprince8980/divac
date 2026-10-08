@@ -811,6 +811,7 @@ function ProfilePage({ user, onBack, onLogout }) {
         <p className="eyebrow">Your Diva profile</p>
         <h1>{user?.name || 'Your profile'}</h1>
         <div className="profile-details">
+          <div className="profile-detail"><span>Name</span><strong>{user?.name || 'Not available'}</strong></div>
           <div className="profile-detail"><span>Email</span><strong>{user?.email || 'Not available'}</strong></div>
           <div className="profile-detail"><span>Mobile number</span><strong>{user?.phone || 'Not available'}</strong></div>
         </div>
