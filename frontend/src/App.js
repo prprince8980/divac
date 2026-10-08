@@ -137,17 +137,20 @@ function ProductList({ onOpen }) {
 function ProductPage({ product, onBack, onBuy }) {
   if (!product) return null;
 
-  const image = getProductImageUrl(product.images && product.images[0]);
+  const images = product.images && product.images.length ? product.images : [null];
   const available = product.quantity > 0;
   const [quantity, setQuantity] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   useEffect(() => {
     setQuantity(1);
+    setActiveImageIndex(0);
   }, [product?._id]);
 
   const maxQuantity = Math.min(product.quantity, 10);
   const canDecrease = quantity > 1;
   const canIncrease = quantity < maxQuantity;
+  const image = getProductImageUrl(images[activeImageIndex]);
 
   return (
     <section className="content-page product-page">
@@ -155,6 +158,20 @@ function ProductPage({ product, onBack, onBuy }) {
       <div className="product-layout">
         <div className="product-photo-wrap">
           <img className="product-photo" src={image} alt={product.name} onError={handleImageError} />
+          {images.length > 1 && (
+            <div className="product-image-dots" role="group" aria-label="Choose product image">
+              {images.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`product-image-dot${index === activeImageIndex ? ' active' : ''}`}
+                  onClick={() => setActiveImageIndex(index)}
+                  aria-label={`Show image ${index + 1} of ${images.length}`}
+                  aria-pressed={index === activeImageIndex}
+                />
+              ))}
+            </div>
+          )}
           <span className={`detail-stock ${available ? '' : 'sold-out'}`}>
             {available ? `${product.quantity} in stock` : 'Currently unavailable'}
           </span>
@@ -548,7 +565,7 @@ function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlace
           <p className="eyebrow">Your order</p>
           <div className="summary-product">
             <img
-              src={product.images && product.images[0] ? `${API}${product.images[0]}` : FALLBACK_IMAGE}
+              src={getProductImageUrl(product.images && product.images[0])}
               alt=""
               onError={handleImageError}
             />

@@ -301,6 +301,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .product-layout { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(36px, 8vw, 100px); align-items: center; }
 .product-photo-wrap { position: relative; padding: 18px; background: #f3ebe5; }
 .product-photo { width: 100%; aspect-ratio: 1 / .92; object-fit: cover; background: var(--surface-warm); }
+.product-image-dots { position: absolute; right: 18px; bottom: 27px; left: 18px; display: flex; justify-content: center; gap: 9px; }
+.product-image-dot { width: 9px; height: 9px; padding: 0; border: 1px solid var(--accent-dark); border-radius: 50%; background: var(--surface); cursor: pointer; }
+.product-image-dot.active { background: var(--accent-dark); }
+.product-image-dot:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
 .detail-stock {
   position: absolute;
   bottom: 30px;
