@@ -353,11 +353,14 @@ function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlace
   const [phone, setPhone] = useState(userPhone);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
 
-  async function placeOrder(event) {
-    event.preventDefault();
+  const orderTotal = product ? product.price * quantity : 0;
+
+  async function placeOrder() {
     if (!product) return;
     setPlacing(true);
+    setError('');
     setError('');
     try {
       const normalizedPhone = normalizePhone(phone);
@@ -405,12 +408,18 @@ function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlace
         address: address.trim()
       });
       localStorage.setItem('diva_orders', JSON.stringify(history));
+      setConfirmingOrder(false);
       onPlaced();
     } catch (err) {
       setError(err.message || 'We could not place your order. Please try again.');
     } finally {
       setPlacing(false);
     }
+  }
+
+  function openConfirmation(event) {
+    event.preventDefault();
+    setConfirmingOrder(true);
   }
 
   if (!product) return null;
@@ -524,10 +533,10 @@ function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlace
             />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button place-order-button" type="submit" disabled={placing}>
+          <button className="button place-order-button" type="button" onClick={openConfirmation} disabled={placing}>
             {placing ? 'Placing your order…' : 'Place order'}
           </button>
-          <p className="secure-note">Your order is only confirmed when you select “Place order”.</p>
+          <p className="secure-note">Your order is only confirmed after checking the cash-on-delivery total.</p>
         </form>
         <aside className="order-summary">
           <p className="eyebrow">Your order</p>
@@ -541,10 +550,32 @@ function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlace
           </div>
           <div className="summary-line"><span>Subtotal</span><strong>₹{product.price * quantity}</strong></div>
           <div className="summary-line"><span>Delivery</span><strong>To be confirmed</strong></div>
-          <div className="summary-total"><span>Total</span><strong>₹{product.price * quantity}</strong></div>
+          <div className="summary-total"><span>Total</span><strong>₹{orderTotal}</strong></div>
           <div className="payment-note"><span aria-hidden="true">♡</span> Cash on delivery</div>
         </aside>
       </div>
+
+      {confirmingOrder && (
+        <div className="order-confirmation" role="dialog" aria-modal="true" aria-labelledby="order-confirmation-title">
+          <div className="order-confirmation-backdrop" onClick={() => setConfirmingOrder(false)} />
+          <div className="order-confirmation-card">
+            <span className="order-confirmation-icon" aria-hidden="true">₹</span>
+            <p className="eyebrow">Cash on delivery</p>
+            <h2 id="order-confirmation-title">Confirm your order</h2>
+            <p className="order-confirmation-message">You should pay <strong>₹{orderTotal}</strong> when your order is delivered.</p>
+            <div className="order-confirmation-breakdown">
+              <span>{product.name}</span>
+              <span>{quantity} × ₹{product.price}</span>
+            </div>
+            <div className="order-confirmation-actions">
+              <button className="button button-secondary" type="button" onClick={() => setConfirmingOrder(false)}>Cancel</button>
+              <button className="button" type="button" onClick={placeOrder} disabled={placing}>
+                {placing ? 'Placing your order…' : 'Confirm and place order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

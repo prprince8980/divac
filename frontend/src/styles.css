@@ -498,6 +498,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .summary-total strong { color: var(--accent-dark); font-size: 16px; }
 .payment-note { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 13px; background: var(--accent-light); color: var(--accent-dark); font-size: 11px; font-weight: 700; }
 
+.order-confirmation { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 24px; }
+.order-confirmation-backdrop { position: absolute; inset: 0; background: rgba(44, 33, 29, .55); }
+.order-confirmation-card { position: relative; z-index: 1; width: min(100%, 440px); padding: 28px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); text-align: center; }
+.order-confirmation-icon { display: grid; width: 52px; height: 52px; margin: 0 auto 14px; place-items: center; border-radius: 50%; background: var(--accent-light); color: var(--accent-dark); font-size: 25px; font-weight: 700; }
+.order-confirmation-card h2 { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: 28px; font-weight: 500; }
+.order-confirmation-message { margin: 16px 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.order-confirmation-message strong { color: var(--accent-dark); font-size: 19px; }
+.order-confirmation-breakdown { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.order-confirmation-actions { display: flex; gap: 12px; margin-top: 22px; }
+.order-confirmation-actions .button { flex: 1; min-height: 46px; }
+
 .history-page { min-height: 60vh; }
 .history-page .section-heading { align-items: center; margin-bottom: 18px; }
 .order-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
