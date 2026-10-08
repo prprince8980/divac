@@ -4,35 +4,129 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
+const { OAuth2Client } = require('google-auth-library');
 const { normalizePhone } = require('../utils/phone');
 
-// POST /api/store/login
-// Phone-only sign-in; phone ownership is not verified.
-router.post('/login', async (req, res) => {
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com');
+
+// POST /api/store/google-login
+router.post('/google-login', async (req, res) => {
   try {
-    const { phone } = req.body || {};
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) {
-      return res.status(400).json({ error: 'Enter a valid mobile number, including its country code' });
+    const { credential } = req.body || {};
+    if (!credential) {
+      return res.status(400).json({ error: 'Google credential is required' });
     }
 
-    let customer;
-    try {
-      customer = await Customer.findOneAndUpdate(
-        { phone: normalizedPhone },
-        { $setOnInsert: { phone: normalizedPhone } },
-        { new: true, upsert: true, runValidators: true }
-      ).lean();
-    } catch (err) {
-      if (err.code !== 11000) throw err;
-      customer = await Customer.findOne({ phone: normalizedPhone }).lean();
-      if (!customer) throw err;
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com'
+    });
+    const payload = ticket.getPayload();
+    if (!payload?.email || !payload?.sub) {
+      return res.status(401).json({ error: 'Invalid Google account information' });
+    }
+
+    const customer = await Customer.findOneAndUpdate(
+      { email: payload.email },
+      {
+        $set: {
+          googleId: payload.sub,
+          email: payload.email,
+          name: payload.name || payload.email
+        },
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    res.json({
+      customer: {
+        id: customer._id,
+        googleId: customer.googleId,
+        email: customer.email,
+        name: customer.name,
+        phone: customer.phone || null
+      }
+    });
+  } catch (err) {
+    console.error('Google login error:', err.message);
+    res.status(401).json({ error: 'Google sign-in failed. Please try again.' });
+  }
+});
+
+// POST /api/store/account/profile
+router.post('/account/profile', async (req, res) => {
+  try {
+    const { customerId, name, phone } = req.body || {};
+    const normalizedPhone = normalizePhone(phone);
+    const trimmedName = String(name || '').trim();
+
+    if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+      return res.status(400).json({ error: 'Valid account information is required' });
+    }
+    if (trimmedName.length < 2) {
+      return res.status(400).json({ error: 'Enter your name using at least 2 characters' });
+    }
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid mobile number' });
+    }
+
+    const customer = await Customer.findOneAndUpdate(
+      { _id: customerId },
+      { $set: { name: trimmedName, phone: normalizedPhone } },
+      { new: true, runValidators: true }
+    );
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    res.json({
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone
+      }
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'This mobile number is already linked to another account.' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Could not save your account details. Please try again.' });
+  }
+});
+
+// POST /api/store/account/phone
+router.post('/account/phone', async (req, res) => {
+  try {
+    const { customerId, phone } = req.body || {};
+    const normalizedPhone = normalizePhone(phone);
+    if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) {
+      return res.status(400).json({ error: 'Valid account information is required' });
+    }
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Enter a valid mobile number' });
+    }
+
+    const customer = await Customer.findOneAndUpdate(
+      { _id: customerId },
+      { $set: { phone: normalizedPhone } },
+      { new: true, runValidators: true }
+    );
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Account not found' });
     }
 
     res.json({ customer: { id: customer._id, phone: customer.phone } });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'This mobile number is already linked to another account.' });
+    }
     console.error(err);
-    res.status(500).json({ error: 'Could not save your account. Please try again.' });
+    res.status(500).json({ error: 'Could not save your mobile number. Please try again.' });
   }
 });
 
@@ -185,6 +279,14 @@ router.post('/checkout', async (req, res) => {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items provided' });
     }
+    if (!customer || typeof customer !== 'object') {
+      return res.status(400).json({ error: 'Customer details are required' });
+    }
+    const customerPhone = normalizePhone(customer.phone);
+    if (!customerPhone) {
+      return res.status(400).json({ error: 'A valid mobile number is required for this order' });
+    }
+    customer.phone = customerPhone;
 
     let total = 0;
     const orderItems = [];

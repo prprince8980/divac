@@ -322,6 +322,49 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .buy-button { width: min(100%, 320px); min-height: 50px; justify-content: space-between; padding: 0 20px; }
 .secure-note { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 
+.sign-in-popup {
+  position: fixed;
+  z-index: 40;
+  top: 24px;
+  right: 24px;
+  width: min(420px, calc(100% - 32px));
+  animation: sign-in-popup-in .2s ease;
+}
+.sign-in-popup-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 16px 14px;
+  border: 1px solid #cfe0cf;
+  border-radius: 8px;
+  background: #f3f9f3;
+  box-shadow: 0 18px 40px rgba(67, 42, 34, .16);
+}
+.sign-in-popup-icon {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+.sign-in-popup strong { display: block; color: var(--text); font-size: 14px; }
+.sign-in-popup p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.sign-in-popup-close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+@keyframes sign-in-popup-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
 .login-page { display: flex; flex-direction: column; align-items: center; }
 .login-card {
   width: min(100%, 470px);
@@ -353,6 +396,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   letter-spacing: -.025em;
 }
 .login-intro { margin: 12px auto 26px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.login-methods { display: grid; gap: 20px; }
+.google-login-panel { padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #fff; text-align: left; }
+.login-method-label { margin: 0 0 12px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.login-divider { display: flex; align-items: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; }
+.login-divider::before, .login-divider::after { flex: 1; height: 1px; background: var(--line); content: ''; }
+.login-divider span { padding: 0 12px; }
+.login-status { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+.login-status.success { color: var(--green); }
 .login-form { display: flex; flex-direction: column; text-align: left; }
 .login-form label { margin-bottom: 8px; font-size: 12px; font-weight: 700; }
 .login-form input {
@@ -370,6 +421,36 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .login-note, .field-hint { margin: 9px 0 20px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .login-submit { width: 100%; min-height: 49px; }
 .field-hint { margin: 0; }
+
+.profile-page { display: flex; flex-direction: column; align-items: center; }
+.profile-card {
+  width: min(100%, 520px);
+  margin: 0 auto 32px;
+  padding: 34px 28px 30px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.profile-avatar {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+}
+.profile-card h1 { margin: 0; font-size: clamp(29px, 4vw, 38px); }
+.profile-details { display: grid; gap: 12px; margin: 28px 0; text-align: left; }
+.profile-detail { display: flex; flex-direction: column; gap: 5px; padding: 14px; border: 1px solid var(--line); background: #fff; }
+.profile-detail span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.profile-detail strong { overflow-wrap: anywhere; font-size: 13px; }
+.profile-logout-button { width: 100%; min-height: 48px; }
 
 .checkout-heading { margin: 0 0 30px 8px; }
 .checkout-heading h1 { font-size: clamp(34px, 4vw, 46px); }

@@ -162,26 +162,82 @@ function ProductPage({ product, onBack, onBuy }) {
   );
 }
 
-function LoginPage({ onSuccess, onCancel }) {
-  const [phone, setPhone] = useState('');
+function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) {
+  const [name, setName] = useState(googleUser?.name || '');
+  const [phone, setPhone] = useState(googleUser?.phone || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleError, setGoogleError] = useState('');
 
-  async function signIn(event) {
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com';
+    const existingScript = document.querySelector('script[data-google-identity]');
+
+    function renderGoogleButton() {
+      if (!window.google?.accounts?.id || !document.getElementById('diva-google-signin')) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: response => {
+          if (!response.credential) {
+            setGoogleError('Google sign-in was cancelled.');
+            return;
+          }
+          setGoogleError('');
+          onGoogleSuccess(response.credential);
+        }
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById('diva-google-signin'),
+        { theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', logo_alignment: 'left' }
+      );
+      setGoogleReady(true);
+    }
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return undefined;
+    }
+
+    const script = existingScript || document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleIdentity = 'true';
+
+    if (!existingScript) {
+      script.onload = renderGoogleButton;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (!existingScript && script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [onGoogleSuccess]);
+
+  async function saveProfile(event) {
     event.preventDefault();
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`${API}/api/store/login`, {
+      const trimmedName = name.trim();
+      const normalizedPhone = normalizePhone(phone);
+      if (trimmedName.length < 2) throw new Error('Enter your name using at least 2 characters.');
+      if (!normalizedPhone) throw new Error('Enter a valid mobile number.');
+
+      const response = await fetch(`${API}/api/store/account/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ customerId: googleUser?.id, name: trimmedName, phone: normalizedPhone })
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'We could not save your number.');
-      onSuccess(result.customer.phone);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'We could not save your account details.');
+
+      const user = { ...googleUser, name: result.customer.name, phone: result.customer.phone };
+      localStorage.setItem('diva_google_user', JSON.stringify(user));
+      onProfileSuccess(user);
     } catch (err) {
-      setError(err.message || 'We could not sign you in. Please try again.');
+      setError(err.message || 'We could not save your account details. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -193,35 +249,70 @@ function LoginPage({ onSuccess, onCancel }) {
       <div className="login-card">
         <span className="login-mark" aria-hidden="true">D</span>
         <p className="eyebrow">Welcome to Diva</p>
-        <h1>Sign in to continue</h1>
-        <p className="login-intro">Use your mobile number to continue to checkout and keep your shopping simple.</p>
-        <form className="login-form" onSubmit={signIn}>
-          <label htmlFor="login-phone">Mobile number</label>
-          <input
-            id="login-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="+91 98765 43210"
-            value={phone}
-            onChange={event => setPhone(event.target.value)}
-            required
-            aria-describedby="login-phone-note"
-          />
-          <p id="login-phone-note" className="login-note">
-            Enter a 10-digit Indian number or include your country code. We save it to MongoDB, but do not send a verification code, so ownership is not verified.
-          </p>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button login-submit" type="submit" disabled={submitting}>
-            {submitting ? 'Signing you in…' : 'Continue with mobile'}
+        <h1>{googleUser?.phone ? 'Welcome back' : googleUser ? 'Complete your account' : 'Sign in with Google'}</h1>
+        <p className="login-intro">
+          {googleUser?.phone
+            ? `You are signed in as ${googleUser.name}. Your account is ready to continue.`
+            : googleUser
+              ? `You are signed in as ${googleUser.name}. Enter your details so you can buy products and view your orders.`
+              : 'Sign in with Google to continue. New accounts must provide a mobile number and name before buying.'}
+        </p>
+
+        {!googleUser && (
+          <div className="login-methods">
+            <div className="google-login-panel">
+              <div id="diva-google-signin" aria-live="polite" />
+              {googleError && <p className="form-error" role="alert">{googleError}</p>}
+              {!googleReady && !googleError && <p className="login-status">Preparing Google sign-in…</p>}
+            </div>
+          </div>
+        )}
+
+        {googleUser && !googleUser.phone && (
+          <form className="login-form" onSubmit={saveProfile}>
+            <label htmlFor="login-name">Full name</label>
+            <input
+              id="login-name"
+              type="text"
+              autoComplete="name"
+              placeholder="Enter your full name"
+              value={name}
+              onChange={event => setName(event.target.value)}
+              required
+            />
+            <label htmlFor="login-phone">Mobile number</label>
+            <input
+              id="login-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+91 98765 43210"
+              value={phone}
+              onChange={event => setPhone(event.target.value)}
+              required
+              aria-describedby="login-phone-note"
+            />
+            <p id="login-phone-note" className="login-note">
+              Enter a valid Indian mobile number. This will become your account’s default number for orders and delivery.
+            </p>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="button login-submit" type="submit" disabled={submitting}>
+              {submitting ? 'Saving your details…' : 'Save details and continue'}
+            </button>
+          </form>
+        )}
+
+        {googleUser && googleUser.phone && (
+          <button className="button login-submit" type="button" onClick={() => onProfileSuccess(googleUser)}>
+            Continue
           </button>
-        </form>
+        )}
       </div>
     </section>
   );
 }
 
-function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
+function CheckoutPage({ product, userPhone, accountId, onBack, onPlaced, onPhoneChange }) {
   const [name, setName] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [society, setSociety] = useState('');
@@ -230,6 +321,7 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
+  const [phone, setPhone] = useState(userPhone);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
 
@@ -239,6 +331,18 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
     setPlacing(true);
     setError('');
     try {
+      const normalizedPhone = normalizePhone(phone);
+      if (!normalizedPhone) throw new Error('Enter a valid mobile number.');
+      if (normalizedPhone !== normalizePhone(userPhone) && accountId) {
+        const response = await fetch(`${API}/api/store/account/phone`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId: accountId, phone: normalizedPhone })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'We could not save your mobile number.');
+        onPhoneChange(result.customer.phone);
+      }
       const address = [
         houseNumber.trim(),
         society.trim(),
@@ -250,7 +354,7 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: { name: name.trim(), phone: userPhone, address: address.trim() },
+          customer: { name: name.trim(), phone: normalizedPhone, address: address.trim() },
           items: [{ productId: product._id, quantity: 1 }]
         })
       });
@@ -262,7 +366,7 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
         placedAt: new Date().toISOString(),
         product: { _id: product._id, name: product.name, price: product.price },
         name: name.trim(),
-        phone: userPhone,
+        phone: normalizedPhone,
         address: address.trim()
       });
       localStorage.setItem('diva_orders', JSON.stringify(history));
@@ -293,8 +397,17 @@ function CheckoutPage({ product, userPhone, onBack, onPlaced }) {
           </div>
           <div className="form-group">
             <label htmlFor="customer-phone">Phone number</label>
-            <input id="customer-phone" type="tel" autoComplete="tel" value={userPhone} readOnly />
-            <span className="field-hint">Saved to your account</span>
+            <input
+              id="customer-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={event => setPhone(event.target.value)}
+              placeholder="+91 98765 43210"
+              required
+            />
+            <span className="field-hint">This is your account phone number for this order. You can change it before placing the order.</span>
           </div>
           <div className="form-group">
             <label htmlFor="house-number">House / flat number</label>
@@ -689,6 +802,24 @@ function AboutPage({ onShop }) {
   );
 }
 
+function ProfilePage({ user, onBack, onLogout }) {
+  return (
+    <section className="content-page profile-page">
+      <button className="back-link" onClick={onBack}><span aria-hidden="true">←</span> Back to shopping</button>
+      <div className="profile-card">
+        <div className="profile-avatar" aria-hidden="true">{(user?.name || 'D').charAt(0).toUpperCase()}</div>
+        <p className="eyebrow">Your Diva profile</p>
+        <h1>{user?.name || 'Your profile'}</h1>
+        <div className="profile-details">
+          <div className="profile-detail"><span>Email</span><strong>{user?.email || 'Not available'}</strong></div>
+          <div className="profile-detail"><span>Mobile number</span><strong>{user?.phone || 'Not available'}</strong></div>
+        </div>
+        <button className="button profile-logout-button" type="button" onClick={onLogout}>Log out</button>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState('shop');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -696,6 +827,27 @@ export default function App() {
   const [pendingCheckoutProduct, setPendingCheckoutProduct] = useState(null);
   const [pendingHistory, setPendingHistory] = useState(false);
   const [userPhone, setUserPhone] = useState(() => localStorage.getItem('diva_phone') || '');
+  const [accountId, setAccountId] = useState(() => localStorage.getItem('diva_account_id') || '');
+  const [googleUser, setGoogleUser] = useState(() => {
+    try {
+      const value = localStorage.getItem('diva_google_user');
+      return value ? JSON.parse(value) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [signInSuccess, setSignInSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!signInSuccess) return undefined;
+
+    const timer = window.setTimeout(() => setSignInSuccess(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [signInSuccess]);
+
+  function showSignInSuccess() {
+    setSignInSuccess(true);
+  }
 
   function showProduct(product) {
     setSelectedProduct(product);
@@ -719,9 +871,13 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
-  function finishLogin(phone) {
+  function finishLogin(user) {
+    const phone = user?.phone || '';
     localStorage.setItem('diva_phone', phone);
     setUserPhone(phone);
+    setGoogleUser(user);
+    setAccountId(user?.id || accountId);
+    showSignInSuccess();
     if (pendingCheckoutProduct) {
       const product = pendingCheckoutProduct;
       setPendingCheckoutProduct(null);
@@ -738,6 +894,37 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
+  async function handleGoogleSuccess(credential) {
+    try {
+      const response = await fetch(`${API}/api/store/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Google sign-in failed.');
+
+      const user = {
+        id: result.customer.id,
+        name: result.customer.name,
+        email: result.customer.email,
+        phone: result.customer.phone || ''
+      };
+      localStorage.setItem('diva_google_user', JSON.stringify(user));
+      localStorage.setItem('diva_account_id', user.id);
+      setGoogleUser(user);
+      setAccountId(user.id);
+      if (user.phone) {
+        finishLogin(user);
+      }
+    } catch (error) {
+      setGoogleUser(null);
+      console.error(error);
+      setPage('login');
+      window.scrollTo(0, 0);
+    }
+  }
+
   function cancelLogin() {
     setPendingCheckoutProduct(null);
     setPendingHistory(false);
@@ -747,9 +934,22 @@ export default function App() {
 
   function signOut() {
     localStorage.removeItem('diva_phone');
+    localStorage.removeItem('diva_google_user');
+    localStorage.removeItem('diva_account_id');
     setUserPhone('');
+    setAccountId('');
+    setGoogleUser(null);
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect();
+      window.google.accounts.id.revoke(googleUser?.email || '', () => {});
+    }
     setPage('shop');
     window.scrollTo(0, 0);
+  }
+
+  function handlePhoneChange(phone) {
+    localStorage.setItem('diva_phone', phone);
+    setUserPhone(phone);
   }
 
   function goToShop() {
@@ -795,9 +995,9 @@ export default function App() {
           <nav className="main-nav" aria-label="Main navigation">
             <button className={page !== 'history' ? 'nav-link active' : 'nav-link'} onClick={goToShop}>Shop</button>
             <button className={page === 'history' ? 'nav-link active' : 'nav-link'} onClick={goToHistory}>My orders</button>
-            {userPhone ? (
-              <button className="nav-link account-link" onClick={signOut} aria-label={`Sign out from ${userPhone}`}>
-                <span className="account-phone">•••• {userPhone.slice(-4)}</span><span>Sign out</span>
+            {googleUser || userPhone ? (
+              <button className={page === 'profile' ? 'nav-link active account-link' : 'nav-link account-link'} onClick={() => setPage('profile')} aria-label={`Open profile for ${googleUser?.email || userPhone}`}>
+                <span className="account-phone">{googleUser?.name || `•••• ${userPhone.slice(-4)}`}</span><span>Profile</span>
               </button>
             ) : (
               <button
@@ -811,16 +1011,47 @@ export default function App() {
           <span className="header-note">A little joy, delivered.</span>
         </div>
       </header>
+      {signInSuccess && (
+        <div className="sign-in-popup" role="status" aria-live="polite">
+          <div className="sign-in-popup-content">
+            <span className="sign-in-popup-icon" aria-hidden="true">✓</span>
+            <div>
+              <strong>Login complete</strong>
+              <p>You can now buy products and view your orders.</p>
+            </div>
+            <button className="sign-in-popup-close" type="button" aria-label="Close sign-in confirmation" onClick={() => setSignInSuccess(false)}>
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       <main className="container">
         {page === 'shop' && <ProductList onOpen={showProduct} />}
         {page === 'product' && (
           <ProductPage product={selectedProduct} onBack={goToShop} onBuy={buyProduct} />
         )}
         {page === 'checkout' && (
-          <CheckoutPage product={checkoutProduct} userPhone={userPhone} onBack={returnToProduct} onPlaced={finishOrder} />
+          <CheckoutPage
+            product={checkoutProduct}
+            userPhone={userPhone}
+            accountId={accountId}
+            onBack={returnToProduct}
+            onPlaced={finishOrder}
+            onPhoneChange={handlePhoneChange}
+          />
         )}
         {page === 'history' && userPhone && <History onShop={goToShop} userPhone={userPhone} />}
-        {page === 'login' && <LoginPage onSuccess={finishLogin} onCancel={cancelLogin} />}
+        {page === 'profile' && googleUser && (
+          <ProfilePage user={googleUser} onBack={goToShop} onLogout={signOut} />
+        )}
+        {page === 'login' && (
+          <LoginPage
+            onGoogleSuccess={handleGoogleSuccess}
+            onProfileSuccess={finishLogin}
+            onCancel={cancelLogin}
+            googleUser={googleUser}
+          />
+        )}
         {page === 'about' && <AboutPage onShop={goToShop} />}
       </main>
       <footer className="site-footer">
