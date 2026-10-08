@@ -336,13 +336,19 @@ function ProductPage({ product, onBack, onBuy }) {
   );
 }
 
-function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) {
+function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser, requireProfile }) {
   const [name, setName] = useState(googleUser?.name || '');
   const [phone, setPhone] = useState(googleUser?.phone || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [googleReady, setGoogleReady] = useState(false);
   const [googleError, setGoogleError] = useState('');
+
+  useEffect(() => {
+    if (!googleUser) return;
+    setName(current => current || googleUser.name || '');
+    setPhone(current => current || googleUser.phone || '');
+  }, [googleUser]);
 
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com';
@@ -423,13 +429,23 @@ function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) 
       <div className="login-card">
         <span className="login-mark" aria-hidden="true">D</span>
         <p className="eyebrow">Welcome to Diva</p>
-        <h1>{googleUser?.phone ? 'Welcome back' : googleUser ? 'Complete your account' : 'Sign in with Google'}</h1>
+        <h1>
+          {googleUser
+            ? requireProfile
+              ? 'Confirm your details'
+              : googleUser.phone
+                ? 'Welcome back'
+                : 'Complete your account'
+            : 'Sign in with Google'}
+        </h1>
         <p className="login-intro">
-          {googleUser?.phone
-            ? `You are signed in as ${googleUser.name}. Your account is ready to continue.`
-            : googleUser
-              ? `You are signed in as ${googleUser.name}. Enter your details so you can buy products and view your orders.`
-              : 'Sign in with Google to continue. New accounts must provide a mobile number and name before buying.'}
+          {googleUser && requireProfile
+            ? 'Confirm your name and mobile number before continuing with your order.'
+            : googleUser?.phone
+              ? `You are signed in as ${googleUser.name}. Your account is ready to continue.`
+              : googleUser
+                ? `You are signed in as ${googleUser.name}. Enter your details so you can buy products and view your orders.`
+                : 'Sign in with Google to continue. New accounts must provide a mobile number and name before buying.'}
         </p>
 
         {!googleUser && (
@@ -442,7 +458,7 @@ function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) 
           </div>
         )}
 
-        {googleUser && !googleUser.phone && (
+        {googleUser && (requireProfile || !googleUser.phone) && (
           <form className="login-form" onSubmit={saveProfile}>
             <label htmlFor="login-name">Full name</label>
             <input
@@ -476,7 +492,7 @@ function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) 
           </form>
         )}
 
-        {googleUser && googleUser.phone && (
+        {googleUser && googleUser.phone && !requireProfile && (
           <button className="button login-submit" type="button" onClick={() => onProfileSuccess(googleUser)}>
             Continue
           </button>
@@ -1189,8 +1205,10 @@ export default function App() {
       localStorage.setItem('diva_account_id', user.id);
       setGoogleUser(user);
       setAccountId(user.id);
-      if (user.phone) {
+      if (user.phone && !pendingCheckoutProduct) {
         finishLogin(user);
+      } else {
+        setPage('login');
       }
     } catch (error) {
       setGoogleUser(null);
@@ -1326,6 +1344,7 @@ export default function App() {
             onProfileSuccess={finishLogin}
             onCancel={cancelLogin}
             googleUser={googleUser}
+            requireProfile={Boolean(pendingCheckoutProduct)}
           />
         )}
         {page === 'about' && <AboutPage onShop={goToShop} />}
