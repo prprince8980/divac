@@ -3,6 +3,12 @@ import React, { useEffect, useState } from 'react';
 const API = import.meta.env.VITE_API_URL || '';
 const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 480%22%3E%3Crect width=%22640%22 height=%22480%22 fill=%22%23f3ebe5%22/%3E%3Ctext x=%2250%25%22 y=%2252%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23793444%22 font-family=%22Georgia%22 font-size=%2244%22%3EDiva%3C/text%3E%3C/svg%3E';
 
+function getProductImageUrl(image) {
+  if (!image) return FALLBACK_IMAGE;
+  if (/^https?:\/\//i.test(image)) return image;
+  return `${API}${image}`;
+}
+
 function handleImageError(event) {
   event.currentTarget.onerror = null;
   event.currentTarget.src = FALLBACK_IMAGE;
@@ -14,7 +20,7 @@ function ProductCard({ product, onOpen }) {
       <button className="product-image-button" onClick={() => onOpen(product)} aria-label={`View ${product.name}`}>
         <img
           className="product-image"
-          src={product.images && product.images[0] ? `${API}${product.images[0]}` : FALLBACK_IMAGE}
+          src={getProductImageUrl(product.images && product.images[0])}
           alt={product.name}
           loading="lazy"
           onError={handleImageError}
@@ -131,7 +137,7 @@ function ProductList({ onOpen }) {
 function ProductPage({ product, onBack, onBuy }) {
   if (!product) return null;
 
-  const image = product.images && product.images[0] ? `${API}${product.images[0]}` : FALLBACK_IMAGE;
+  const image = getProductImageUrl(product.images && product.images[0]);
   const available = product.quantity > 0;
   const [quantity, setQuantity] = useState(1);
 
