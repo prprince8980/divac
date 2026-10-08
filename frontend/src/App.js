@@ -2,6 +2,23 @@ import React, { useEffect, useState } from 'react';
 
 const API = import.meta.env.VITE_API_URL || '';
 const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 480%22%3E%3Crect width=%22640%22 height=%22480%22 fill=%22%23f3ebe5%22/%3E%3Ctext x=%2250%25%22 y=%2252%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23793444%22 font-family=%22Georgia%22 font-size=%2244%22%3EDiva%3C/text%3E%3C/svg%3E';
+const HERO_SLIDES = [
+  {
+    title: 'Your Trust, Our Commitment',
+    description: 'Beautiful Diwali décor, carefully chosen to bring warmth and happiness to your home.',
+    theme: 'trust'
+  },
+  {
+    title: 'Made to Brighten Your Home',
+    description: 'Discover beautiful handcrafted pieces that make every celebration more special.',
+    theme: 'brighten'
+  },
+  {
+    title: 'Celebrate Tradition, Create Memories',
+    description: 'Bring home the beauty of Diwali with timeless décor made with care and love.',
+    theme: 'tradition'
+  }
+];
 
 function getProductImageUrl(image) {
   if (!image) return FALLBACK_IMAGE;
@@ -12,6 +29,67 @@ function getProductImageUrl(image) {
 function handleImageError(event) {
   event.currentTarget.onerror = null;
   event.currentTarget.src = FALLBACK_IMAGE;
+}
+
+function HeroCarousel() {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = window.setInterval(() => {
+      setActiveSlide(current => (current + 1) % HERO_SLIDES.length);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [isPaused, activeSlide]);
+
+  return (
+    <section className="hero" data-theme={HERO_SLIDES[activeSlide].theme} aria-label="Diva Diwali collection highlights">
+      <div className="hero-slides">
+        {HERO_SLIDES.map((slide, index) => (
+          <article
+            key={slide.theme}
+            className={`hero-slide hero-slide-${slide.theme}${index === activeSlide ? ' active' : ''}`}
+            aria-hidden={index !== activeSlide}
+          >
+            <div className="hero-copy">
+              <p className="eyebrow">A little Diwali magic</p>
+              <h1>{slide.title}</h1>
+              <p>{slide.description}</p>
+            </div>
+            <div className="hero-art" aria-hidden="true">
+              <span className="hero-art-sparkle sparkle-one">✦</span>
+              <span className="hero-diya">🪔</span>
+              <span className="hero-art-sparkle sparkle-two">✧</span>
+              <span className="hero-art-caption">Light up<br />your celebrations</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hero-controls" aria-label="Slogan slides">
+        <div className="hero-dots">
+          {HERO_SLIDES.map((slide, index) => (
+            <button
+              key={slide.theme}
+              type="button"
+              className={`hero-dot${index === activeSlide ? ' active' : ''}`}
+              onClick={() => setActiveSlide(index)}
+              aria-label={`Show slide ${index + 1}: ${slide.title}`}
+              aria-pressed={index === activeSlide}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          className="hero-pause"
+          onClick={() => setIsPaused(paused => !paused)}
+          aria-label={isPaused ? 'Play slogan slides' : 'Pause slogan slides'}
+        >
+          {isPaused ? '▶' : 'Ⅱ'}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function ProductCard({ product, onOpen }) {
@@ -76,18 +154,7 @@ function ProductList({ onOpen }) {
 
   return (
     <>
-      <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Thoughtfully chosen, made to be loved</p>
-          <h1>Find something <em>beautiful.</em></h1>
-          <p>Explore the Diva collection and find your next everyday favourite.</p>
-        </div>
-        <div className="hero-note" aria-hidden="true">
-          <span>Made for</span>
-          <strong>your<br />everyday</strong>
-          <span className="hero-sparkle">✳</span>
-        </div>
-      </section>
+      <HeroCarousel />
 
       <section className="catalog-section" aria-label="Shop products">
         <div className="section-heading">
@@ -1116,7 +1183,7 @@ export default function App() {
       <header className="site-header">
         <div className="header-inner">
           <button className="brand" onClick={goToShop} aria-label="Diva Store home">
-            <span className="brand-mark">D</span><span>Diva <small>STORE</small></span>
+            <img src="/diva-logo.png" alt="" />
           </button>
           <nav className="main-nav" aria-label="Main navigation">
             <button className={page !== 'history' ? 'nav-link active' : 'nav-link'} onClick={goToShop}>Shop</button>
@@ -1184,7 +1251,7 @@ export default function App() {
       <footer className="site-footer">
         <div className="footer-main">
           <div className="footer-brand">
-            <span className="footer-brand-mark" aria-hidden="true">D</span>
+            <img className="footer-brand-logo" src="/diva-logo.png" alt="Diva Diwali Decor and Handicrafts" />
             <div>
               <strong>Diva Store</strong>
               <p>Thoughtful finds, made simple.</p>
