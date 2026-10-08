@@ -319,6 +319,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .description { max-width: 470px; margin: 22px 0; color: var(--muted); font-size: 14px; line-height: 1.8; }
 .delivery-note { display: flex; align-items: center; gap: 10px; margin: 24px 0; color: #655b57; font-size: 12px; line-height: 1.6; }
 .delivery-note span, .payment-note span { color: var(--accent); font-size: 19px; }
+.quantity-selector { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 20px; padding: 13px 16px; border: 1px solid var(--line); background: #fff; }
+.quantity-selector > span { color: var(--text); font-size: 12px; font-weight: 700; }
+.quantity-controls { display: inline-flex; align-items: center; border: 1px solid var(--line); }
+.quantity-button { width: 36px; height: 36px; border: 0; background: var(--surface-warm); color: var(--accent-dark); cursor: pointer; font-size: 22px; font-weight: 700; }
+.quantity-button:disabled { background: #f0e9e6; color: #b5a7a0; cursor: not-allowed; }
+.quantity-controls output { min-width: 40px; text-align: center; font-size: 14px; font-weight: 700; }
 .buy-button { width: min(100%, 320px); min-height: 50px; justify-content: space-between; padding: 0 20px; }
 .secure-note { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 

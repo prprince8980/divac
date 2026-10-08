@@ -133,6 +133,15 @@ function ProductPage({ product, onBack, onBuy }) {
 
   const image = product.images && product.images[0] ? `${API}${product.images[0]}` : FALLBACK_IMAGE;
   const available = product.quantity > 0;
+  const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    setQuantity(1);
+  }, [product?._id]);
+
+  const maxQuantity = Math.min(product.quantity, 10);
+  const canDecrease = quantity > 1;
+  const canIncrease = quantity < maxQuantity;
 
   return (
     <section className="content-page product-page">
@@ -151,8 +160,28 @@ function ProductPage({ product, onBack, onBuy }) {
           <div className="detail-rule" />
           <p className="description">{product.description || 'A thoughtful find, selected with care for the Diva collection.'}</p>
           <div className="delivery-note"><span aria-hidden="true">♡</span> Easy ordering, personal service, and cash on delivery.</div>
-          <button className="button buy-button" onClick={() => onBuy(product)} disabled={!available}>
-            {available ? 'Buy this product' : 'Out of stock'}
+          <div className="quantity-selector" aria-label={`Select quantity for ${product.name}`}>
+            <span>Quantity</span>
+            <div className="quantity-controls">
+              <button
+                type="button"
+                className="quantity-button"
+                onClick={() => setQuantity(current => Math.max(1, current - 1))}
+                disabled={!canDecrease}
+                aria-label="Decrease quantity"
+              >−</button>
+              <output aria-live="polite">{quantity}</output>
+              <button
+                type="button"
+                className="quantity-button"
+                onClick={() => setQuantity(current => Math.min(maxQuantity, current + 1))}
+                disabled={!canIncrease}
+                aria-label="Increase quantity"
+              >+</button>
+            </div>
+          </div>
+          <button className="button buy-button" onClick={() => onBuy(product, quantity)} disabled={!available}>
+            {available ? `Buy ${quantity} product${quantity > 1 ? 's' : ''}` : 'Out of stock'}
             {available && <span aria-hidden="true">→</span>}
           </button>
           <p className="secure-note">You can review your details before placing your order.</p>
@@ -312,7 +341,7 @@ function LoginPage({ onGoogleSuccess, onProfileSuccess, onCancel, googleUser }) 
   );
 }
 
-function CheckoutPage({ product, userPhone, accountId, onBack, onPlaced, onPhoneChange }) {
+function CheckoutPage({ product, quantity, userPhone, accountId, onBack, onPlaced, onPhoneChange }) {
   const [name, setName] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [society, setSociety] = useState('');
@@ -350,12 +379,17 @@ function CheckoutPage({ product, userPhone, accountId, onBack, onPlaced, onPhone
         landmark.trim() ? `Landmark: ${landmark.trim()}` : '',
         `${city.trim()}, ${state.trim()} ${pincode.trim()}`
       ].filter(Boolean).join(', ');
+      const selectedQuantity = Math.max(1, Math.min(quantity || 1, product.quantity || quantity || 1));
+      if (selectedQuantity > (product.quantity || 0)) {
+        throw new Error('The selected quantity is no longer available.');
+      }
+
       const response = await fetch(`${API}/api/store/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer: { name: name.trim(), phone: normalizedPhone, address: address.trim() },
-          items: [{ productId: product._id, quantity: 1 }]
+          items: [{ productId: product._id, quantity: selectedQuantity }]
         })
       });
       const result = await response.json();
@@ -365,6 +399,7 @@ function CheckoutPage({ product, userPhone, accountId, onBack, onPlaced, onPhone
       history.unshift({
         placedAt: new Date().toISOString(),
         product: { _id: product._id, name: product.name, price: product.price },
+        quantity: selectedQuantity,
         name: name.trim(),
         phone: normalizedPhone,
         address: address.trim()
@@ -502,11 +537,11 @@ function CheckoutPage({ product, userPhone, accountId, onBack, onPlaced, onPhone
               alt=""
               onError={handleImageError}
             />
-            <div><strong>{product.name}</strong><span>Quantity: 1</span></div>
+            <div><strong>{product.name}</strong><span>Quantity: {quantity}</span></div>
           </div>
-          <div className="summary-line"><span>Subtotal</span><strong>₹{product.price}</strong></div>
+          <div className="summary-line"><span>Subtotal</span><strong>₹{product.price * quantity}</strong></div>
           <div className="summary-line"><span>Delivery</span><strong>To be confirmed</strong></div>
-          <div className="summary-total"><span>Total</span><strong>₹{product.price}</strong></div>
+          <div className="summary-total"><span>Total</span><strong>₹{product.price * quantity}</strong></div>
           <div className="payment-note"><span aria-hidden="true">♡</span> Cash on delivery</div>
         </aside>
       </div>
@@ -825,6 +860,7 @@ export default function App() {
   const [page, setPage] = useState('shop');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [checkoutProduct, setCheckoutProduct] = useState(null);
+  const [checkoutQuantity, setCheckoutQuantity] = useState(1);
   const [pendingCheckoutProduct, setPendingCheckoutProduct] = useState(null);
   const [pendingHistory, setPendingHistory] = useState(false);
   const [userPhone, setUserPhone] = useState(() => localStorage.getItem('diva_phone') || '');
@@ -856,18 +892,19 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
-  function startCheckout(product) {
+  function startCheckout(product, quantity = 1) {
     setCheckoutProduct(product);
+    setCheckoutQuantity(Math.min(quantity, product.quantity || quantity));
     setPage('checkout');
     window.scrollTo(0, 0);
   }
 
-  function buyProduct(product) {
+  function buyProduct(product, quantity = 1) {
     if (userPhone) {
-      startCheckout(product);
+      startCheckout(product, quantity);
       return;
     }
-    setPendingCheckoutProduct(product);
+    setPendingCheckoutProduct({ product, quantity });
     setPage('login');
     window.scrollTo(0, 0);
   }
@@ -880,9 +917,9 @@ export default function App() {
     setAccountId(user?.id || accountId);
     showSignInSuccess();
     if (pendingCheckoutProduct) {
-      const product = pendingCheckoutProduct;
+      const { product, quantity } = pendingCheckoutProduct;
       setPendingCheckoutProduct(null);
-      startCheckout(product);
+      startCheckout(product, quantity);
       return;
     }
     if (pendingHistory) {
@@ -1034,6 +1071,7 @@ export default function App() {
         {page === 'checkout' && (
           <CheckoutPage
             product={checkoutProduct}
+            quantity={checkoutQuantity}
             userPhone={userPhone}
             accountId={accountId}
             onBack={returnToProduct}
