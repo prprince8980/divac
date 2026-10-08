@@ -23,7 +23,7 @@ async function run() {
 
   const shop = {
     slug: 'diva-store',
-    photoUrl: 'https://drive.google.com/uc?export=view&id=1oLFFy2vvJ4fc585Ka-L7xh4270z6lwJv',
+    photoUrl: '/shop-photo.jpg',
     locationUrl: 'https://maps.app.goo.gl/bZFpWbAVrpeLfskZ8'
   };
   await mongoose.model('Shop').findOneAndUpdate(

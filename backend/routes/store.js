@@ -18,7 +18,7 @@ router.get('/shop', async (req, res) => {
       {
         $set: {
           slug: 'diva-store',
-          photoUrl: 'https://drive.google.com/uc?export=view&id=1oLFFy2vvJ4fc585Ka-L7xh4270z6lwJv',
+          photoUrl: '/shop-photo.jpg',
           locationUrl: 'https://maps.app.goo.gl/bZFpWbAVrpeLfskZ8'
         }
       },

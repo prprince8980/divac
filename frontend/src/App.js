@@ -1050,12 +1050,19 @@ function AboutPage({ onShop }) {
           )}
           {shop && (
             <div className="shop-visit-card">
-              <img className="shop-photo" src={shop.photoUrl} alt="Diva Diwali Decor and Handicrafts shop" />
+              <img
+                className="shop-photo"
+                src={getProductImageUrl(shop.photoUrl)}
+                alt="Diva Diwali Decor and Handicrafts shop"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = '/shop-photo.jpg';
+                }}
+              />
               <div className="shop-visit-details">
                 <p className="eyebrow">Come visit us</p>
                 <h3>Diva Diwali Decor &amp; Handicrafts</h3>
-                <p>Find us at our shop and explore our Diwali décor and handcrafted collection.</p>
-                <a className="button shop-directions" href={shop.locationUrl} target="_blank" rel="noreferrer">
+                <p>Find us at our shop and explore our Diwali décor and handcrafted collection.</p>                <a className="button shop-directions" href={shop.locationUrl} target="_blank" rel="noreferrer">
                   Get directions <span aria-hidden="true">↗</span>
                 </a>
               </div>
