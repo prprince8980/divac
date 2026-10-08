@@ -3,11 +3,34 @@ const router = express.Router();
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Customer = require('../models/Customer');
+const Shop = require('../models/Shop');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const { normalizePhone } = require('../utils/phone');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com');
+
+// GET /api/store/shop
+router.get('/shop', async (req, res) => {
+  try {
+    const shop = await Shop.findOneAndUpdate(
+      { slug: 'diva-store' },
+      {
+        $set: {
+          slug: 'diva-store',
+          photoUrl: 'https://drive.google.com/uc?export=view&id=1oLFFy2vvJ4fc585Ka-L7xh4270z6lwJv',
+          locationUrl: 'https://maps.app.goo.gl/bZFpWbAVrpeLfskZ8'
+        }
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    res.json({ shop });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load shop details' });
+  }
+});
 
 // POST /api/store/google-login
 router.post('/google-login', async (req, res) => {

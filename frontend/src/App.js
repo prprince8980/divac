@@ -4,18 +4,21 @@ const API = import.meta.env.VITE_API_URL || '';
 const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 480%22%3E%3Crect width=%22640%22 height=%22480%22 fill=%22%23f3ebe5%22/%3E%3Ctext x=%2250%25%22 y=%2252%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23793444%22 font-family=%22Georgia%22 font-size=%2244%22%3EDiva%3C/text%3E%3C/svg%3E';
 const HERO_SLIDES = [
   {
+    eyebrow: 'Deepak presents',
     title: 'Your Trust, Our Commitment',
-    description: 'Beautiful Diwali décor, carefully chosen to bring warmth and happiness to your home.',
+    description: 'Beautiful Diwali décor, carefully chosen with care for your home and celebrations.',
     theme: 'trust'
   },
   {
-    title: 'Made to Brighten Your Home',
-    description: 'Discover beautiful handcrafted pieces that make every celebration more special.',
+    eyebrow: 'From Deepak’s collection',
+    title: 'Brighten Every Moment',
+    description: 'Handpicked décor and handcrafted treasures that add warmth, color, and joy.',
     theme: 'brighten'
   },
   {
+    eyebrow: 'Deepak’s Diwali stories',
     title: 'Celebrate Tradition, Create Memories',
-    description: 'Bring home the beauty of Diwali with timeless décor made with care and love.',
+    description: 'Bring home timeless festive beauty with personal service and a welcoming shopping experience.',
     theme: 'tradition'
   }
 ];
@@ -53,15 +56,49 @@ function HeroCarousel() {
             aria-hidden={index !== activeSlide}
           >
             <div className="hero-copy">
-              <p className="eyebrow">A little Diwali magic</p>
+              <p className="eyebrow">{slide.eyebrow}</p>
               <h1>{slide.title}</h1>
               <p>{slide.description}</p>
+              <p className="hero-signature">— Deepak</p>
             </div>
             <div className="hero-art" aria-hidden="true">
-              <span className="hero-art-sparkle sparkle-one">✦</span>
-              <span className="hero-diya">🪔</span>
-              <span className="hero-art-sparkle sparkle-two">✧</span>
-              <span className="hero-art-caption">Light up<br />your celebrations</span>
+              {slide.theme === 'trust' && (
+                <svg className="hero-artwork trust-artwork" viewBox="0 0 200 200">
+                  <circle className="artwork-ring" cx="100" cy="100" r="82" />
+                  <path className="artwork-line" d="M100 148V94M100 117c-22-3-34-18-35-39 21 1 36 13 35 39Zm0-15c2-25 17-39 39-40-1 22-14 37-39 40Zm-1 46c-23-1-37-13-42-33 20-1 36 10 42 33Zm2 0c5-23 21-34 42-33-5 20-20 32-42 33Zm-1-48c-7-7-11-15-11-25 10 3 17 10 20 20 3-10 10-17 20-20 0 10-4 18-12 25" />
+                  <path className="artwork-line artwork-shield" d="M100 38 119 46v18c0 14-8 25-19 31-11-6-19-17-19-31V46l19-8Z" />
+                  <path className="artwork-check" d="m92 63 6 6 12-14" />
+                  <circle className="artwork-dot" cx="39" cy="89" r="3" />
+                  <circle className="artwork-dot" cx="160" cy="106" r="3" />
+                </svg>
+              )}
+              {slide.theme === 'brighten' && (
+                <svg className="hero-artwork brighten-artwork" viewBox="0 0 200 200">
+                  <circle className="artwork-sun" cx="100" cy="105" r="54" />
+                  <path className="artwork-line" d="M100 20v16m0 138v16M20 105h16m128 0h16M43 48l12 12m90 90 12 12m0-114-12 12m-90 90-12 12" />
+                  <path className="artwork-lantern" d="M76 76h48l-7 16v52l-17 13-17-13V92l-7-16Zm12 16h24m-24 42h24M91 65c0-6 4-10 9-10s9 4 9 10m-12-10v-9h6v9" />
+                  <path className="artwork-flame" d="M100 101c-9 11 4 15 0 24 10-5 13-15 0-24Z" />
+                  <circle className="artwork-dot" cx="48" cy="134" r="3" />
+                  <circle className="artwork-dot" cx="151" cy="63" r="3" />
+                </svg>
+              )}
+              {slide.theme === 'tradition' && (
+                <svg className="hero-artwork tradition-artwork" viewBox="0 0 200 200">
+                  <circle className="artwork-ring" cx="100" cy="100" r="78" />
+                  <circle className="artwork-ring inner-ring" cx="100" cy="100" r="55" />
+                  <path className="rangoli-petal" d="M100 35c10 15 10 28 0 39-10-11-10-24 0-39Zm0 91c10 12 10 25 0 39-10-14-10-27 0-39Zm-65-26c15-10 28-10 39 0-11 10-24 10-39 0Zm91 0c12-10 25-10 39 0-14 10-27 10-39 0ZM54 54c17 5 26 14 27 29-15-1-24-10-27-29Zm65 65c15 1 24 10 27 27-17-3-26-12-27-27Zm27-65c-3 17-12 26-27 29 1-15 10-24 27-29Zm-65 65c-1 15-10 24-27 27 3-17 12-26 27-27Z" />
+                  <circle className="artwork-center" cx="100" cy="100" r="12" />
+                  <circle className="artwork-dot" cx="100" cy="14" r="3" />
+                  <circle className="artwork-dot" cx="100" cy="186" r="3" />
+                  <circle className="artwork-dot" cx="14" cy="100" r="3" />
+                  <circle className="artwork-dot" cx="186" cy="100" r="3" />
+                </svg>
+              )}
+              <span className="hero-art-caption">
+                {slide.theme === 'trust' && <>Chosen with<br />care and trust</>}
+                {slide.theme === 'brighten' && <>A brighter home<br />for every moment</>}
+                {slide.theme === 'tradition' && <>Tradition made<br />to be treasured</>}
+              </span>
             </div>
           </article>
         ))}
@@ -962,6 +999,25 @@ function History({ onShop, userPhone }) {
 }
 
 function AboutPage({ onShop }) {
+  const [shop, setShop] = useState(null);
+  const [shopError, setShopError] = useState('');
+
+  async function loadShopDetails() {
+    setShopError('');
+    try {
+      const response = await fetch(`${API}/api/store/shop`);
+      if (!response.ok) throw new Error('We could not load the shop details.');
+      const result = await response.json();
+      setShop(result.shop);
+    } catch (err) {
+      setShopError(err.message || 'We could not load the shop details.');
+    }
+  }
+
+  useEffect(() => {
+    loadShopDetails();
+  }, []);
+
   return (
     <section className="content-page about-page">
       <button className="back-link" onClick={onShop}><span aria-hidden="true">←</span> Back to the store</button>
@@ -986,6 +1042,25 @@ function AboutPage({ onShop }) {
               <span><small>Call us</small><strong>+91 89802 55345</strong></span>
             </a>
           </div>
+          {shopError && (
+            <div className="shop-details-error" role="alert">
+              <span>{shopError}</span>
+              <button className="text-button" type="button" onClick={loadShopDetails}>Try again</button>
+            </div>
+          )}
+          {shop && (
+            <div className="shop-visit-card">
+              <img className="shop-photo" src={shop.photoUrl} alt="Diva Diwali Decor and Handicrafts shop" />
+              <div className="shop-visit-details">
+                <p className="eyebrow">Come visit us</p>
+                <h3>Diva Diwali Decor &amp; Handicrafts</h3>
+                <p>Find us at our shop and explore our Diwali décor and handcrafted collection.</p>
+                <a className="button shop-directions" href={shop.locationUrl} target="_blank" rel="noreferrer">
+                  Get directions <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
