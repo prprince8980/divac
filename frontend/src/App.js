@@ -159,18 +159,36 @@ function ProductPage({ product, onBack, onBuy }) {
         <div className="product-photo-wrap">
           <img className="product-photo" src={image} alt={product.name} onError={handleImageError} />
           {images.length > 1 && (
-            <div className="product-image-dots" role="group" aria-label="Choose product image">
-              {images.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className={`product-image-dot${index === activeImageIndex ? ' active' : ''}`}
-                  onClick={() => setActiveImageIndex(index)}
-                  aria-label={`Show image ${index + 1} of ${images.length}`}
-                  aria-pressed={index === activeImageIndex}
-                />
-              ))}
-            </div>
+            <>
+              <button
+                type="button"
+                className="product-image-arrow previous"
+                onClick={() => setActiveImageIndex((activeImageIndex - 1 + images.length) % images.length)}
+                aria-label="Show previous product image"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+              </button>
+              <button
+                type="button"
+                className="product-image-arrow next"
+                onClick={() => setActiveImageIndex((activeImageIndex + 1) % images.length)}
+                aria-label="Show next product image"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+              </button>
+              <div className="product-image-dots" role="group" aria-label="Choose product image">
+                {images.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`product-image-dot${index === activeImageIndex ? ' active' : ''}`}
+                    onClick={() => setActiveImageIndex(index)}
+                    aria-label={`Show image ${index + 1} of ${images.length}`}
+                    aria-pressed={index === activeImageIndex}
+                  />
+                ))}
+              </div>
+            </>
           )}
           <span className={`detail-stock ${available ? '' : 'sold-out'}`}>
             {available ? `${product.quantity} in stock` : 'Currently unavailable'}
