@@ -614,6 +614,7 @@ function History({ onShop, userPhone }) {
   const [cancelingOrderId, setCancelingOrderId] = useState(null);
   const [confirmationPhone, setConfirmationPhone] = useState('');
   const [cancelError, setCancelError] = useState('');
+  const [showCancelForm, setShowCancelForm] = useState(false);
   const [counts, setCounts] = useState({ active: 0, cancelled: 0, waiting: 0, accepted: 0, rejected: 0 });
 
   const visibleOrders = activeTab === 'cancelled'
@@ -672,6 +673,13 @@ function History({ onShop, userPhone }) {
     setSelectedOrder(null);
     setConfirmationPhone('');
     setCancelError('');
+    setShowCancelForm(false);
+  }
+
+  function openCancelForm() {
+    setShowCancelForm(true);
+    setCancelError('');
+    setConfirmationPhone('');
   }
 
   const activeCounts = {
@@ -743,7 +751,7 @@ function History({ onShop, userPhone }) {
                 </button>
                 {order.status !== 'cancelled' && order.status !== 'rejected' && (
                   <div className="history-actions">
-                    <button className="text-button cancel-button" onClick={() => { setSelectedOrder(order); setConfirmationPhone(''); setCancelError(''); }}>Cancel order</button>
+                    <button className="text-button cancel-button" onClick={() => { setSelectedOrder(order); setShowCancelForm(false); setConfirmationPhone(''); setCancelError(''); }}>Cancel order</button>
                   </div>
                 )}
               </article>
@@ -799,31 +807,39 @@ function History({ onShop, userPhone }) {
             {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'rejected' && (
               <div className="cancel-confirmation" aria-live="polite">
                 <h3>Cancel this order</h3>
-                <p>Enter the mobile number for this order to confirm cancellation. This action returns the product quantity to stock.</p>
-                <label htmlFor="cancel-phone-confirmation">Mobile number</label>
-                <input
-                  id="cancel-phone-confirmation"
-                  type="tel"
-                  inputMode="tel"
-                  value={confirmationPhone}
-                  onChange={event => setConfirmationPhone(event.target.value)}
-                  placeholder={userPhone}
-                />
-                {cancelError && <p className="form-error">{cancelError}</p>}
-                <div className="order-modal-actions">
-                  <button className="button button-secondary" type="button" onClick={closeDetails}>Keep order</button>
-                  <button
-                    className="button cancel-confirm-button"
-                    type="button"
-                    disabled={
-                      cancelingOrderId !== null ||
-                      normalizePhone(confirmationPhone) !== normalizePhone(userPhone)
-                    }
-                    onClick={() => cancelOrder(selectedOrder)}
-                  >
-                    {cancelingOrderId === selectedOrder._id ? 'Cancelling…' : 'Confirm cancellation'}
+                <p>This action returns the product quantity to stock.</p>
+                {!showCancelForm ? (
+                  <button className="button cancel-order-button" type="button" onClick={openCancelForm}>
+                    Cancel order
                   </button>
-                </div>
+                ) : (
+                  <>
+                    <label htmlFor="cancel-phone-confirmation">Enter the mobile number for this order</label>
+                    <input
+                      id="cancel-phone-confirmation"
+                      type="tel"
+                      inputMode="tel"
+                      value={confirmationPhone}
+                      onChange={event => setConfirmationPhone(event.target.value)}
+                      placeholder={userPhone}
+                    />
+                    {cancelError && <p className="form-error">{cancelError}</p>}
+                    <div className="order-modal-actions">
+                      <button className="button button-secondary" type="button" onClick={() => setShowCancelForm(false)}>Back</button>
+                      <button
+                        className="button cancel-confirm-button"
+                        type="button"
+                        disabled={
+                          cancelingOrderId !== null ||
+                          normalizePhone(confirmationPhone) !== normalizePhone(userPhone)
+                        }
+                        onClick={() => cancelOrder(selectedOrder)}
+                      >
+                        {cancelingOrderId === selectedOrder._id ? 'Cancelling…' : 'Confirm cancellation'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
