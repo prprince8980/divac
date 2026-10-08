@@ -7,6 +7,7 @@ const Shop = require('../models/Shop');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const { normalizePhone } = require('../utils/phone');
+const { getCustomerOrderStatus } = require('../utils/order-status');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '467903913101-evfpbnn8eb4i5n09diidu44vfgcdn1ft.apps.googleusercontent.com');
 
@@ -162,33 +163,25 @@ router.get('/orders', async (req, res) => {
       return res.status(400).json({ error: 'A valid phone number is required' });
     }
 
-    const filter = { 'customer.phone': normalizedPhone };
-    if (status === 'cancelled') {
-      filter.status = 'cancelled';
-      filter.isCancelled = true;
-    } else if (status === 'waiting') {
-      filter.status = 'pending';
-      filter.isCancelled = false;
-    } else if (status === 'accepted') {
-      filter.status = 'accepted';
-      filter.isCancelled = false;
-    } else if (status === 'rejected') {
-      filter.status = 'rejected';
-      filter.isCancelled = false;
-    } else {
-      filter.isCancelled = false;
-      filter.status = { $in: ['pending', 'accepted', 'rejected'] };
+    const customerOrders = await Order.find({ 'customer.phone': normalizedPhone }).sort({ createdAt: -1 }).lean();
+    const ordersWithCustomerStatus = customerOrders.map(order => ({
+      ...order,
+      status: getCustomerOrderStatus(order)
+    }));
+    const counts = { waiting: 0, accepted: 0, rejected: 0, cancelled: 0 };
+    for (const order of ordersWithCustomerStatus) {
+      const countStatus = order.status === 'pending' ? 'waiting' : order.status;
+      if (Object.prototype.hasOwnProperty.call(counts, countStatus)) counts[countStatus] += 1;
     }
 
-    const [orders, counts] = await Promise.all([
-      Order.find(filter).sort({ createdAt: -1 }).lean(),
-      {
-        waiting: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'pending' }),
-        accepted: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'accepted' }),
-        rejected: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: false, status: 'rejected' }),
-        cancelled: await Order.countDocuments({ 'customer.phone': normalizedPhone, isCancelled: true, status: 'cancelled' })
+    const requestedStatus = status === 'waiting' ? 'pending' : status;
+    const orders = ordersWithCustomerStatus.filter(order => {
+      if (requestedStatus === 'cancelled') return order.status === 'cancelled';
+      if (requestedStatus === 'pending' || requestedStatus === 'accepted' || requestedStatus === 'rejected') {
+        return order.status === requestedStatus;
       }
-    ]);
+      return order.status !== 'cancelled';
+    });
 
     res.json({ orders, counts });
   } catch (err) {
@@ -215,10 +208,11 @@ router.post('/orders/:id/cancel', async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found for this mobile number' });
     }
-    if (order.isCancelled || order.status === 'cancelled') {
+    const customerStatus = getCustomerOrderStatus(order);
+    if (customerStatus === 'cancelled') {
       return res.status(409).json({ error: 'This order is already cancelled' });
     }
-    if (order.status === 'rejected') {
+    if (customerStatus === 'rejected') {
       return res.status(409).json({ error: 'A rejected order cannot be cancelled' });
     }
 
@@ -236,6 +230,7 @@ router.post('/orders/:id/cancel', async (req, res) => {
       order.isAccepted = false;
       order.isCancelled = true;
       order.cancelledAt = new Date();
+      order.statusHistory.push({ status: 'cancelled', changedAt: order.cancelledAt });
       await order.save({ session });
     });
 
@@ -335,6 +330,7 @@ router.post('/checkout', async (req, res) => {
         items: orderItems,
         total,
         status: 'pending',
+        statusHistory: [{ status: 'pending', changedAt: new Date() }],
         isAccepted: false,
         isCancelled: false,
         cancelledAt: null,

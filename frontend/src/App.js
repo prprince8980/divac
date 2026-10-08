@@ -756,6 +756,12 @@ function getOrderStatus(order) {
   return 'Waiting';
 }
 
+function getStatusHistoryLabel(status) {
+  const label = String(status || 'Updated');
+  if (label === 'processing') return 'Accepted';
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function formatDeliveryDate(dateValue) {
   if (!dateValue) return 'Delivery time will be confirmed';
   const date = new Date(dateValue);
@@ -954,6 +960,16 @@ function History({ onShop, userPhone }) {
                   <strong>{formatDeliveryDate(selectedOrder.deliveryDateTime)}</strong>
                 </div>
                 <p className="delivery-message">{selectedOrder.status === 'accepted' || selectedOrder.isAccepted ? 'Your order is accepted and scheduled for delivery.' : selectedOrder.status === 'cancelled' ? 'This order has been cancelled.' : selectedOrder.status === 'rejected' ? 'This order was rejected.' : 'Your order is waiting for acceptance.'}</p>
+                {selectedOrder.statusHistory?.length > 0 && (
+                  <div className="order-status-history" aria-label="Order status history">
+                    {selectedOrder.statusHistory.map((entry, index) => (
+                      <div className="detail-row" key={`${entry.status}-${entry.changedAt}-${index}`}>
+                        <span>{getStatusHistoryLabel(entry.status)}</span>
+                        <strong>{formatDeliveryDate(entry.changedAt)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
 

@@ -7,6 +7,11 @@ const OrderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true }
 }, { _id: false });
 
+const OrderStatusHistorySchema = new mongoose.Schema({
+  status: { type: String, required: true },
+  changedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const OrderSchema = new mongoose.Schema({
   orderNumber: { type: String, required: true, unique: true },
   customer: {
@@ -17,9 +22,10 @@ const OrderSchema = new mongoose.Schema({
   },
   items: [OrderItemSchema],
   total: Number,
+  statusHistory: { type: [OrderStatusHistorySchema], default: [] },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected', 'cancelled'],
+    enum: ['pending', 'processing', 'accepted', 'rejected', 'cancelled'],
     default: 'pending'
   },
   isAccepted: { type: Boolean, default: false },
