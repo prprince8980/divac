@@ -254,7 +254,7 @@ router.get('/products', async (req, res) => {
     page = parseInt(page, 10);
     limit = Math.min(parseInt(limit, 10) || 24, 50);
 
-    const filter = {};
+    const filter = { isListed: { $ne: false } };
     if (search) {
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.name = { $regex: escapedSearch, $options: 'i' };
@@ -279,7 +279,7 @@ router.get('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid product id' });
-    const product = await Product.findById(id).select('-notes').lean();
+    const product = await Product.findOne({ _id: id, isListed: { $ne: false } }).select('-notes').lean();
     if (!product) return res.status(404).json({ error: 'Product not found' });
     res.json({ product });
   } catch (err) {
